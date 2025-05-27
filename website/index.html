@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobile TV Remote</title>
+    <link rel="stylesheet" href="mainstyle.css">
+</head>
+<body>
+    <div class="remote-container">
+        <!-- Top bar for Toggle Screen and Power -->
+        <div class="top-bar">
+            <button class="remote-button toggle-screen-button" aria-label="Toggle Screen Power">Toggle Screen</button>
+            <button class="remote-button power-button" aria-label="Power Off">⏻</button>
+        </div>
+
+        <!-- d-pad-section will now be a flex container for d-pad-grid and volume-controls -->
+        <div class="d-pad-section">
+            <div class="d-pad-grid">
+                <button class="remote-button d-pad-button up" aria-label="Up">▲</button>
+                <button class="remote-button d-pad-button left" aria-label="Left">◀</button>
+                <button class="remote-button d-pad-button ok" aria-label="OK">OK</button>
+                <button class="remote-button d-pad-button right" aria-label="Right">▶</button>
+                <button class="remote-button d-pad-button down" aria-label="Down">▼</button>
+            </div>
+            <!-- Volume controls -->
+            <div class="volume-controls">
+                <button class="remote-button volume-button" aria-label="Volume Up">+</button>
+                <button class="remote-button volume-button" aria-label="Volume Down">−</button>
+            </div>
+        </div>
+
+        <div class="bottom-controls">
+            <button class="remote-button action-button" aria-label="Home">Home</button>
+            <button class="remote-button action-button" aria-label="Menu">Menu</button>
+            <button class="remote-button action-button" aria-label="Input Source">Input</button>
+            <button class="remote-button action-button" aria-label="Settings">Settings</button>
+        </div>
+    </div>
+</body>
+</html>
