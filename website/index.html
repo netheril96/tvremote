@@ -1,41 +1,325 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mobile TV Remote</title>
-    <link rel="stylesheet" href="mainstyle.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Remote Control</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+
+        .remote-container {
+            width: 375px;
+            /* Typical mobile width */
+            height: 667px;
+            /* Typical mobile height */
+            background-color: #ffffff;
+            border-radius: 40px;
+            /* Slightly rounded edges for the phone screen feel */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            padding: 20px 0;
+            box-sizing: border-box;
+        }
+
+        .top-buttons,
+        .bottom-buttons {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            padding: 0 40px;
+            box-sizing: border-box;
+        }
+
+        .top-buttons {
+            /* Specific overrides for top buttons */
+            justify-content: space-between;
+            /* Pushes buttons to the ends */
+            padding: 0 20px;
+            /* Reduces side padding to bring them closer to edges */
+        }
+
+        .button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 50%;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #555;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+
+        .button:active {
+            background-color: #e0e0e0;
+        }
+
+        .circle-button {
+            width: 60px;
+            height: 60px;
+        }
+
+        .nav-pad-container {
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            margin: 30px 0;
+        }
+
+        .nav-button {
+            position: absolute;
+            background-color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 70px;
+            height: 70px;
+            font-size: 1.5em;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:active {
+            background-color: #e0e0e0;
+        }
+
+        .nav-center-ok {
+            width: 90px;
+            height: 90px;
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #555;
+            z-index: 1;
+            /* Ensure OK is on top */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+
+        .nav-center-ok:active {
+            background-color: #e0e0e0;
+        }
+
+
+        .nav-button.top {
+            top: 15px;
+        }
+
+        .nav-button.bottom {
+            bottom: 15px;
+        }
+
+        .nav-button.left {
+            left: 15px;
+        }
+
+        .nav-button.right {
+            right: 15px;
+        }
+
+        .volume-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            height: 140px;
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 40px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            padding: 10px 0;
+            box-sizing: border-box;
+            justify-content: space-around;
+            position: relative;
+            /* For "音量" positioning */
+        }
+
+        .volume-control::before {
+            content: "音量";
+            position: absolute;
+            top: 5px;
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        .volume-button {
+            width: 100%;
+            height: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+
+        .volume-button:active {
+            background-color: #e0e0e0;
+        }
+
+        .volume-plus {
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .volume-minus {
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .bottom-row-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            padding: 0 40px;
+            box-sizing: border-box;
+            justify-items: center;
+            align-items: center;
+        }
+
+        .bottom-left-button,
+        .bottom-right-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em;
+            color: #555;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+
+        .bottom-left-button:active,
+        .bottom-right-button:active {
+            background-color: #e0e0e0;
+        }
+
+        /* Specific positioning for bottom buttons */
+        .grid-item-1 {
+            grid-area: 1 / 1;
+            justify-self: start;
+        }
+
+        /* Return */
+        .grid-item-2 {
+            grid-area: 1 / 2;
+            justify-self: end;
+        }
+
+        /* Menu */
+        .grid-item-3 {
+            grid-area: 2 / 1;
+            justify-self: start;
+        }
+
+        /* Source */
+        .grid-item-4 {
+            grid-area: 2 / 2;
+            justify-self: end;
+        }
+
+        /* Keyboard */
+
+        .bottom-row-wrapper {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: flex-end;
+            /* Align to the bottom of the remote */
+            padding: 0 40px 20px;
+            /* Adjust padding as needed */
+            box-sizing: border-box;
+            margin-top: 20px;
+            /* Space between nav pad and bottom row */
+        }
+
+        .middle-controls {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .icon-text {
+            font-size: 1.4em;
+        }
+    </style>
 </head>
+
 <body>
     <div class="remote-container">
-        <!-- Top bar for Toggle Screen and Power -->
-        <div class="top-bar">
-            <button class="remote-button toggle-screen-button" aria-label="Toggle Screen Power">Toggle Screen</button>
-            <button class="remote-button power-button" aria-label="Power Off">⏻</button>
+        <div class="top-buttons">
+            <div class="button circle-button icon-text">OFF</div>
+            <div class="button circle-button icon-text">🏠</div>
         </div>
 
-        <!-- d-pad-section will now be a flex container for d-pad-grid and volume-controls -->
-        <div class="d-pad-section">
-            <div class="d-pad-grid">
-                <button class="remote-button d-pad-button up" aria-label="Up">▲</button>
-                <button class="remote-button d-pad-button left" aria-label="Left">◀</button>
-                <button class="remote-button d-pad-button ok" aria-label="OK">OK</button>
-                <button class="remote-button d-pad-button right" aria-label="Right">▶</button>
-                <button class="remote-button d-pad-button down" aria-label="Down">▼</button>
-            </div>
-            <!-- Volume controls -->
-            <div class="volume-controls">
-                <button class="remote-button volume-button" aria-label="Volume Up">+</button>
-                <button class="remote-button volume-button" aria-label="Volume Down">−</button>
-            </div>
+        <div class="nav-pad-container">
+            <div class="nav-button top">↑</div>
+            <div class="nav-button bottom">↓</div>
+            <div class="nav-button left">←</div>
+            <div class="nav-button right">→</div>
+            <div class="nav-center-ok">OK</div>
         </div>
 
-        <div class="bottom-controls">
-            <button class="remote-button action-button" aria-label="Home">Home</button>
-            <button class="remote-button action-button" aria-label="Menu">Menu</button>
-            <button class="remote-button action-button" aria-label="Input Source">Input</button>
-            <button class="remote-button action-button" aria-label="Settings">Settings</button>
+        <div class="middle-controls">
+            <div class="bottom-left-button icon-text">↩</div>
+            <div class="volume-control">
+                <div class="volume-button volume-plus">+</div>
+                <div class="volume-button volume-minus">–</div>
+            </div>
+            <div class="bottom-right-button icon-text">≡</div>
+        </div>
+
+        <div class="bottom-buttons">
+            <div class="button circle-button icon-text">📺</div>
+            <div class="button circle-button icon-text">⌨</div>
         </div>
     </div>
 </body>
+
 </html>
