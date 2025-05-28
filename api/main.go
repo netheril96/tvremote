@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const (
@@ -24,8 +25,8 @@ type TVRemoteService struct {
 	// reconnectFunc is called when an ADB command fails, to re-establish connection.
 	reconnectFunc func() error
 	serveMux      http.ServeMux
-	// scrcpyCmd and scrcpyMu are presumably for other functionalities.
-	scrcpyCmd exec.Cmd
+
+	scrcpyCmd *exec.Cmd
 	scrcpyMu  sync.Mutex
 }
 
@@ -39,6 +40,7 @@ func NewTVRemoteService(host string, port int, localServerPort int) *TVRemoteSer
 		return startAndConnectAdb(adbHost, adbPort, localServerPort)
 	}
 	s.serveMux.HandleFunc("POST /api/keyevent", s.handleKeyEvent)
+	s.serveMux.HandleFunc("POST /api/toggle_screen", s.handleToggleScreen)
 	return s
 }
 
@@ -50,7 +52,7 @@ func (s *TVRemoteService) handleKeyEvent(w http.ResponseWriter, r *http.Request)
 	}
 
 	sendCommand := func() error {
-		cmd := exec.Command("adb", "-s", expectedAdbSerial, "shell", "input", "keyevent", keycode)
+		cmd := exec.Command("adb", "shell", "input", "keyevent", keycode)
 		log.Printf("Executing ADB command: %s", cmd.String())
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -84,6 +86,98 @@ func (s *TVRemoteService) handleKeyEvent(w http.ResponseWriter, r *http.Request)
 		log.Printf("Failed to send key event %s on second attempt: %v", keycode, err)
 		http.Error(w, "Failed to send key event after retry", http.StatusInternalServerError)
 		return
+	}
+}
+
+func (s *TVRemoteService) handleToggleScreen(w http.ResponseWriter, r *http.Request) {
+	s.scrcpyMu.Lock()
+	defer s.scrcpyMu.Unlock()
+
+	if s.scrcpyCmd != nil && s.scrcpyCmd.Process != nil {
+		// If scrcpy is running, stop it by sending SIGINT
+		log.Println("Stopping scrcpy...")
+		if err := s.scrcpyCmd.Process.Signal(os.Interrupt); err != nil {
+			log.Printf("Failed to send SIGINT to scrcpy process: %v", err)
+			http.Error(w, "Failed to stop scrcpy", http.StatusInternalServerError)
+			return
+		}
+		// Wait for the process to exit to release resources.
+		if _, err := s.scrcpyCmd.Process.Wait(); err != nil {
+			log.Printf("Error waiting for scrcpy process to exit: %v", err)
+			// Continue, as the signal was sent and we intend to clear s.scrcpyCmd.
+		}
+		log.Println("scrcpy process stopped.")
+		s.scrcpyCmd = nil
+		w.WriteHeader(http.StatusOK)
+	} else {
+		// If scrcpy is not running, start it
+		log.Println("Attempting to start scrcpy...")
+
+		// Helper function to start scrcpy
+		startScrcpy := func() (*exec.Cmd, error) {
+			// Assuming scrcpy is in the PATH.
+			// ANDROID_SERIAL and ADB_SERVER_SOCKET are set globally in main()
+			// and should be picked up by scrcpy.
+			c := exec.Command("scrcpy", "--no-playback", "-S")
+			c.Stdout = os.Stdout // Pipe scrcpy output to service logs
+			c.Stderr = os.Stderr
+			err := c.Start()
+			if err != nil {
+				return nil, fmt.Errorf("scrcpy cmd.Start() failed: %w", err)
+			}
+			return c, nil
+		}
+
+		var currentScrcpyCmd *exec.Cmd
+		var startErr error
+
+		currentScrcpyCmd, startErr = startScrcpy()
+
+		if startErr != nil {
+			log.Printf("Failed to start scrcpy on first attempt: %v", startErr)
+			log.Println("Attempting ADB reconnect before retrying scrcpy...")
+			if s.reconnectFunc == nil {
+				log.Printf("Reconnect function is not set for TVRemoteService.")
+				http.Error(w, "Failed to start scrcpy, reconnect unavailable", http.StatusInternalServerError)
+				return
+			}
+			if reconErr := s.reconnectFunc(); reconErr != nil {
+				log.Printf("Failed to reconnect to ADB: %v", reconErr)
+				http.Error(w, "Failed to start scrcpy after reconnect attempt failed", http.StatusInternalServerError)
+				return
+			}
+			log.Println("ADB reconnected successfully. Retrying scrcpy.")
+			currentScrcpyCmd, startErr = startScrcpy() // Retry
+			if startErr != nil {
+				log.Printf("Failed to start scrcpy on second attempt: %v", startErr)
+				http.Error(w, "Failed to start scrcpy after retry", http.StatusInternalServerError)
+				return // Crucial: ensure we don't proceed if the second attempt fails
+			}
+		}
+
+		// At this point, currentScrcpyCmd.Start() has succeeded.
+		log.Printf("scrcpy process started (PID: %d). Monitoring for 1 second...", currentScrcpyCmd.Process.Pid)
+		s.scrcpyCmd = currentScrcpyCmd // Store the command; it will be cleared if it exits prematurely
+
+		done := make(chan error, 1)
+		go func() {
+			// This goroutine waits for the command to exit.
+			done <- currentScrcpyCmd.Wait()
+		}()
+
+		select {
+		case <-time.After(1 * time.Second):
+			// Process is still running after 1 second.
+			log.Printf("scrcpy (PID: %d) confirmed running after 1 second.", currentScrcpyCmd.Process.Pid)
+			w.WriteHeader(http.StatusOK) // Send success response
+		case waitErr := <-done:
+			// Process exited within 1 second.
+			pid := currentScrcpyCmd.Process.Pid
+			log.Printf("scrcpy process (PID: %d) exited prematurely within 1 second. Error from Wait: %v", pid, waitErr)
+			errMsg := fmt.Sprintf("scrcpy (PID: %d) failed to stay running or exited prematurely within 1 second: %v", pid, waitErr)
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			s.scrcpyCmd = nil // Clear the command as it's no longer running
+		}
 	}
 }
 
@@ -130,6 +224,12 @@ func main() {
 		log.Fatalf("Failed to set ADB_SERVER_SOCKET environment variable: %v", err)
 	}
 	log.Printf("ADB_SERVER_SOCKET set to %s", adbServerSocketEnv)
+
+	// Set ANDROID_SERIAL to target a specific device.
+	if err := os.Setenv("ANDROID_SERIAL", expectedAdbSerial); err != nil {
+		log.Fatalf("Failed to set ANDROID_SERIAL environment variable: %v", err)
+	}
+	log.Printf("ANDROID_SERIAL set to %s", expectedAdbSerial)
 
 	// Create the TVRemoteService instance
 	tvService := NewTVRemoteService(adbHost, adbPort, *adbLocalServerPort)
