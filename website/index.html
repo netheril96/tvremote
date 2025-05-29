@@ -289,6 +289,31 @@
             font-size: 1.4em;
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const toggleScreenButton = document.getElementById('toggle_screen_button');
+            const inputButton = document.getElementById('input_button');
+
+            if (toggleScreenButton) {
+                toggleScreenButton.addEventListener('click', async function () {
+                    try {
+                        await fetch('/api/toggle_screen', {
+                            method: 'POST'
+                        })
+                    } catch (error) {
+                        console.error('Error toggling screen:', error);
+                    }
+                });
+            }
+
+            if (inputButton) {
+                inputButton.addEventListener('click', function () {
+                    console.log('Input button clicked');
+                    // Add your desired functionality for the input button here
+                });
+            }
+        });
+    </script>
 </head>
 
 <body>
@@ -316,8 +341,8 @@
         </div>
 
         <div class="bottom-buttons">
-            <div class="button circle-button icon-text tv-remote-button">📺</div>
-            <div class="button circle-button icon-text tv-remote-button">⌨</div>
+            <div class="button circle-button icon-text tv-remote-button" id="toggle_screen_button">📺</div>
+            <div class="button circle-button icon-text tv-remote-button" id="input_button">⌨</div>
         </div>
     </div>
 </body>
