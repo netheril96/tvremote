@@ -238,28 +238,36 @@ func main() {
 	if err := tvService.reconnectFunc(); err != nil {
 		log.Fatalf("Initial ADB setup failed: %v. Ensure ADB is installed and accessible.", err)
 	}
-	if *socketPath != "" {
-		log.Printf("Attempting to listen on unix socket: %s", *socketPath)
-		if err := os.RemoveAll(*socketPath); err != nil { // Remove socket file if it exists
-			log.Fatalf("Failed to remove existing socket file %s: %v", *socketPath, err)
-		}
 
-		listener, err := net.Listen("unix", *socketPath)
-		if err != nil {
-			log.Fatalf("Failed to listen on unix socket %s: %v", *socketPath, err)
+	// Determine listen address (socket or HTTP)
+	var listener net.Listener
+	var listenErr error
+	if os.Getenv("LISTEN_FDS") == "1" {
+		// Systemd socket activation
+		log.Println("Using systemd socket activation (fd=3)")
+		file := os.NewFile(3, "systemd-socket")
+		listener, listenErr = net.FileListener(file)
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Error closing file: %v", closeErr)
 		}
-		// Change socket permissions to be group readable/writable
-		if err := os.Chmod(*socketPath, 0660); err != nil {
-			log.Fatalf("Failed to change socket permissions for %s: %v", *socketPath, err)
+		if listenErr != nil {
+			log.Fatalf("Failed to use systemd activated socket: %v", listenErr)
 		}
-
-		defer listener.Close()
+	} else if *socketPath != "" {
+		// Unix socket specified by flag
+		log.Printf("Listening on unix socket: %s", *socketPath)
+		listener, listenErr = net.Listen("unix", *socketPath)
+		if listenErr != nil {
+			log.Fatalf("Failed to listen on unix socket %s: %v", *socketPath, listenErr)
+		}
 		defer os.RemoveAll(*socketPath) // Clean up socket file on exit
-
-		log.Printf("Server listening on unix socket: %s", *socketPath)
-		log.Fatal(http.Serve(listener, &tvService.serveMux))
 	} else {
+		// HTTP address specified by flag
 		log.Printf("Server listening on HTTP address: %s", *httpAddr)
 		log.Fatal(http.ListenAndServe(*httpAddr, &tvService.serveMux))
+		return // http.ListenAndServe is blocking, so we return here
 	}
+	defer listener.Close()
+	log.Printf("Server listening on %s", listener.Addr())
+	log.Fatal(http.Serve(listener, &tvService.serveMux))
 }
